@@ -81,6 +81,18 @@ make check    # ruff + mypy --strict + pytest com cobertura
 O Poetry está configurado (`poetry.toml`) para criar o virtualenv em `.venv/` e
 usar o cache em `.poetry-cache/`, ambos dentro do projeto e ignorados pelo git.
 
+### Testes
+
+```bash
+poetry run pytest                          # tudo, com cobertura (mínimo 95%)
+poetry run pytest tests/unit --no-cov      # apenas unitários, sem exigir cobertura
+poetry run pytest tests/api --no-cov       # endpoints via HTTP (TestClient)
+poetry run pytest -m integration --no-cov  # migrations reais e concorrência
+```
+
+Use `--no-cov` ao rodar só um subconjunto: o limite de 95% vale para a suíte completa.
+Nenhum teste depende de rede ou de estado externo; cada um recebe um banco novo.
+
 ### Exemplos
 
 Há também um arquivo [requests.http](requests.http) para clientes REST (VS Code,
@@ -173,7 +185,7 @@ src/library_api/
   models/book.py        Book (ORM), enums de ordenação
   db/                   base (naming convention), session (engine), types (UTCDateTime)
   schemas/              book.py (contratos de entrada/saída), common.py (Page, ProblemDetail)
-  core/                 config, logging, middleware, errors, exceptions, text
+  core/                 config, logging, middleware, errors, exceptions, text, openapi
 migrations/             Alembic (env.py, versions/0001_create_books.py)
 tests/                  unit/ · api/ · integration/
 docs/adr/               decisões de arquitetura (camadas, busca, escopo/concorrência)
@@ -228,7 +240,16 @@ Pydantic v2 com tipos anotados reutilizáveis (`Title`, `Author`, `PublishedDate
 (NUL etc.; quebras de linha são permitidas), `extra="forbid"` e data de publicação não
 futura. `BookUpdate` rejeita corpo vazio e `null` explícito. Os
 parâmetros de query formam o modelo `BookSearchParams`, o que documenta e valida a
-listagem no OpenAPI.
+listagem no OpenAPI; filtros de texto são aparados e não podem ser vazios (evita que
+um filtro em branco case com todos os livros).
+
+**Contrato OpenAPI (`core/openapi.py`).** O FastAPI anuncia por padrão o erro 422 como
+`application/json` com o schema `HTTPValidationError`, mas esta API responde
+`application/problem+json`. A subclasse `LibraryAPI` corrige o documento gerado:
+todas as respostas de erro apontam para `ProblemDetail` com exemplos de 404/409/422 e
+os schemas genéricos são removidos. Todas as operações, parâmetros e propriedades
+têm descrição, e `tests/api/test_openapi_contract.py` falha se algo voltar a ficar
+sem documentação.
 
 ### 3.7 Erros (`core/exceptions.py`, `core/errors.py`)
 
