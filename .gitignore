@@ -17,3 +17,4 @@ data/
 *.db-wal
 .idea/
 .vscode/
+.poetry-cache/
