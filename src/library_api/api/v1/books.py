@@ -38,10 +38,11 @@ def create_book(
 
     A book is identified by the (accent and case insensitive) combination of
     title, author and publication date; registering it twice yields ``409``.
-    The ``Location`` header points to the new resource.
+    The ``Location`` header holds the new resource's path (a relative reference,
+    so it never reflects the client-supplied ``Host`` header).
     """
     book = service.register(payload)
-    response.headers["Location"] = str(request.url_for("get_book", book_id=book.id))
+    response.headers["Location"] = request.app.url_path_for("get_book", book_id=book.id)
     return BookRead.model_validate(book)
 
 
@@ -49,6 +50,9 @@ def create_book(
     "",
     response_model=Page[BookRead],
     summary="Search books",
+    responses={
+        HTTPStatus.UNPROCESSABLE_ENTITY: {"model": ProblemDetail, "description": "Invalid query."},
+    },
 )
 def list_books(
     params: Annotated[BookSearchParams, Query()], service: BookServiceDep

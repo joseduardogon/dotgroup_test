@@ -7,7 +7,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from library_api import __version__
 
-Environment = Literal["development", "testing", "production"]
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
 
@@ -21,7 +20,6 @@ class Settings(BaseSettings):
     Attributes:
         app_name: Human readable service name shown in the OpenAPI document.
         app_version: Semantic version of the running build.
-        environment: Deployment stage; influences defaults such as logging.
         database_url: SQLAlchemy URL. Only SQLite is officially supported.
         log_level: Minimum severity emitted by the application loggers.
         log_json: Emit one JSON object per log line (recommended in production).
@@ -37,7 +35,6 @@ class Settings(BaseSettings):
 
     app_name: str = "Virtual Library API"
     app_version: str = __version__
-    environment: Environment = "development"
     database_url: str = "sqlite:///./data/library.db"
     log_level: LogLevel = "INFO"
     log_json: bool = False

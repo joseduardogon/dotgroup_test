@@ -1,0 +1,40 @@
+@host = http://localhost:8000
+@api = {{host}}/api/v1
+
+### Register a book
+POST {{api}}/books
+Content-Type: application/json
+
+{
+  "title": "Dom Casmurro",
+  "author": "Machado de Assis",
+  "published_date": "1899-12-01",
+  "summary": "Bentinho narra a dúvida sobre a fidelidade de Capitu."
+}
+
+### Search by title
+GET {{api}}/books?title=casmurro
+
+### Search by author (accent and case insensitive)
+GET {{api}}/books?author=MACHADO
+
+### Free text: title OR author, newest first
+GET {{api}}/books?q=assis&sort=published_date&order=desc&limit=10
+
+### Get one (replace the id)
+GET {{api}}/books/00000000-0000-0000-0000-000000000000
+
+### Partial update
+PATCH {{api}}/books/00000000-0000-0000-0000-000000000000
+Content-Type: application/json
+
+{ "summary": "Novo resumo." }
+
+### Delete
+DELETE {{api}}/books/00000000-0000-0000-0000-000000000000
+
+### Probes
+GET {{host}}/health/live
+
+###
+GET {{host}}/health/ready

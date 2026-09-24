@@ -11,6 +11,8 @@ from library_api.core.exceptions import DuplicateBookError
 from library_api.core.text import normalize_for_search
 from library_api.models.book import Book, BookSortField, SortOrder
 
+_SQLITE_UNIQUE_VIOLATION = "SQLITE_CONSTRAINT_UNIQUE"
+
 _SORT_COLUMNS: dict[BookSortField, InstrumentedAttribute[object]] = {
     BookSortField.TITLE: Book.title_search,
     BookSortField.AUTHOR: Book.author_search,
@@ -125,10 +127,14 @@ class BookRepository:
 
         Raises:
             DuplicateBookError: If the pending changes violate the natural key.
+            IntegrityError: For any other constraint violation, which indicates a
+                programming error rather than a client conflict.
         """
         try:
             self._session.flush()
         except IntegrityError as exc:
+            if getattr(exc.orig, "sqlite_errorname", None) != _SQLITE_UNIQUE_VIOLATION:
+                raise
             raise DuplicateBookError from exc
 
     @staticmethod

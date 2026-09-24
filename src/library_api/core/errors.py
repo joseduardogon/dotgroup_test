@@ -11,6 +11,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from library_api.core.exceptions import AppError
 from library_api.core.logging import request_id_ctx
+from library_api.core.middleware import REQUEST_ID_HEADER
 from library_api.schemas.common import FieldError, ProblemDetail
 
 PROBLEM_MEDIA_TYPE = "application/problem+json"
@@ -42,6 +43,7 @@ def _problem(
     Returns:
         A ready to send response with the problem media type.
     """
+    request_id = getattr(request.state, "request_id", None) or request_id_ctx.get()
     body = ProblemDetail(
         type=_PROBLEM_URN.format(code=code),
         title=title,
@@ -49,15 +51,18 @@ def _problem(
         detail=detail,
         instance=request.url.path,
         code=code,
-        request_id=request_id_ctx.get(),
+        request_id=request_id,
         errors=errors,
     )
-    return JSONResponse(
+    response = JSONResponse(
         body.model_dump(mode="json", exclude_none=True),
         status_code=status,
         media_type=PROBLEM_MEDIA_TYPE,
         headers=headers,
     )
+    if request_id:
+        response.headers[REQUEST_ID_HEADER] = request_id
+    return response
 
 
 async def _handle_app_error(request: Request, exc: Exception) -> JSONResponse:
@@ -133,7 +138,11 @@ async def _handle_unexpected_error(request: Request, exc: Exception) -> JSONResp
     Returns:
         A generic 500 problem carrying only the request id for support lookups.
     """
-    _logger.error("Unhandled exception", exc_info=exc)
+    _logger.error(
+        "Unhandled exception",
+        exc_info=exc,
+        extra={"request_id": getattr(request.state, "request_id", None)},
+    )
     return _problem(
         request,
         status=HTTPStatus.INTERNAL_SERVER_ERROR,

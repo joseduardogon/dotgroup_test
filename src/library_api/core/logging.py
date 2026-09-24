@@ -65,7 +65,7 @@ class _RequestIdFilter(logging.Filter):
         Returns:
             Always ``True``; the filter only enriches records.
         """
-        record.request_id = request_id_ctx.get() or "-"
+        record.request_id = getattr(record, "request_id", None) or request_id_ctx.get() or "-"
         return True
 
 

@@ -21,7 +21,11 @@ jobs:
       - run: poetry run ruff check .
       - run: poetry run ruff format --check .
       - run: poetry run mypy
-      - run: poetry run pytest
+      - run: poetry run pytest --cov-report=xml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.xml
 
   docker:
     runs-on: ubuntu-latest
@@ -31,7 +35,8 @@ jobs:
       - run: docker build -t dotgroup-test:ci .
       - name: Smoke test the image
         run: |
-          docker run -d --name api -p 8000:8000 dotgroup-test:ci
+          docker volume create api-data
+          docker run -d --name api -p 8000:8000 -v api-data:/data --read-only --tmpfs /tmp dotgroup-test:ci
           for i in $(seq 1 20); do curl -fs localhost:8000/health/ready && exit 0; sleep 1; done
           docker logs api
           exit 1

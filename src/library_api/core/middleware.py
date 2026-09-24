@@ -27,7 +27,9 @@ class RequestContextMiddleware:
     * Honors an incoming ``X-Request-ID`` when it is short and log-safe,
       otherwise generates a UUID4. Untrusted values are never echoed blindly,
       which prevents log/header injection.
-    * Publishes the id through :data:`request_id_ctx` for the duration of the request.
+    * Publishes the id through :data:`request_id_ctx` and ``request.state.request_id``.
+      The latter survives until the outermost error handler, which runs after this
+      middleware has already unwound.
     * Echoes the id on the response and emits one access-log record per request.
     """
 
@@ -53,6 +55,7 @@ class RequestContextMiddleware:
 
         incoming = MutableHeaders(scope=scope).get(REQUEST_ID_HEADER, "")
         request_id = incoming if _SAFE_REQUEST_ID.fullmatch(incoming) else uuid.uuid4().hex
+        scope.setdefault("state", {})["request_id"] = request_id
         token = request_id_ctx.set(request_id)
         started = time.perf_counter()
         status_code = 500

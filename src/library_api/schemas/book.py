@@ -1,5 +1,6 @@
 """Book request and response contracts."""
 
+import re
 import uuid
 from datetime import UTC, date, datetime
 from typing import Annotated, Self
@@ -39,14 +40,38 @@ def _not_in_the_future(value: date) -> date:
     return value
 
 
+_CONTROL_CHARACTERS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+
+def _without_control_characters(value: str) -> str:
+    """Reject NUL and other non-printable control characters.
+
+    Newlines and tabs remain valid so summaries can span several lines.
+
+    Args:
+        value: The candidate text.
+
+    Returns:
+        ``value`` when valid.
+
+    Raises:
+        ValueError: If a forbidden control character is present.
+    """
+    if _CONTROL_CHARACTERS.search(value):
+        raise ValueError("control characters are not allowed")
+    return value
+
+
 Title = Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=1, max_length=TITLE_MAX_LENGTH),
+    AfterValidator(_without_control_characters),
     Field(description="Book title.", examples=["Dom Casmurro"]),
 ]
 Author = Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=1, max_length=AUTHOR_MAX_LENGTH),
+    AfterValidator(_without_control_characters),
     Field(description="Author full name.", examples=["Machado de Assis"]),
 ]
 PublishedDate = Annotated[
@@ -57,6 +82,7 @@ PublishedDate = Annotated[
 Summary = Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=1, max_length=SUMMARY_MAX_LENGTH),
+    AfterValidator(_without_control_characters),
     Field(description="Synopsis of the book.", examples=["Bentinho narra a dúvida sobre Capitu."]),
 ]
 

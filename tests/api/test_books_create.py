@@ -1,5 +1,6 @@
 """Tests for ``POST /api/v1/books``."""
 
+import pytest
 from fastapi.testclient import TestClient
 
 URL = "/api/v1/books"
@@ -18,6 +19,30 @@ def test_create_returns_201_location_and_body(
     assert body["created_at"]
     assert body["updated_at"]
     assert client.get(response.headers["location"]).json() == body
+
+
+def test_location_is_relative_and_ignores_the_host_header(
+    client: TestClient, book_payload: dict[str, str]
+) -> None:
+    """``Location`` never reflects a client-supplied ``Host``."""
+    response = client.post(URL, json=book_payload, headers={"Host": "evil.example"})
+
+    assert response.headers["location"] == f"{URL}/{response.json()['id']}"
+
+
+@pytest.mark.parametrize("field", ["title", "author", "summary"])
+def test_control_characters_are_rejected(
+    client: TestClient, book_payload: dict[str, str], field: str
+) -> None:
+    """NUL bytes in text fields are a validation error."""
+    response = client.post(URL, json=book_payload | {field: "bad\x00value"})
+
+    assert response.status_code == 422
+
+
+def test_multiline_summary_is_accepted(client: TestClient, book_payload: dict[str, str]) -> None:
+    """Newlines remain valid in summaries."""
+    assert client.post(URL, json=book_payload | {"summary": "a\nb"}).status_code == 201
 
 
 def test_create_duplicate_returns_409_ignoring_case_and_accents(

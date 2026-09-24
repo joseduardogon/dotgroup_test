@@ -78,11 +78,13 @@ def test_unexpected_errors_are_hidden_from_clients(client: TestClient) -> None:
         raise RuntimeError("secret internals")
 
     _app(client).add_api_route("/boom", boom)
-    response = client.get("/boom")
+    response = client.get("/boom", headers={"X-Request-ID": "trace-500"})
 
     assert response.status_code == 500
     assert response.json()["code"] == "internal-error"
     assert "secret" not in response.text
+    assert response.json()["request_id"] == "trace-500"
+    assert response.headers["x-request-id"] == "trace-500"
 
 
 def test_root_redirects_to_docs(client: TestClient) -> None:

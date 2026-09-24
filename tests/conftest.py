@@ -13,7 +13,7 @@ from library_api.main import create_app
 @pytest.fixture
 def settings() -> Settings:
     """Provide settings pointing at a private in-memory database."""
-    return Settings(environment="testing", database_url="sqlite://", log_level="WARNING")
+    return Settings(database_url="sqlite://", log_level="WARNING")
 
 
 @pytest.fixture
