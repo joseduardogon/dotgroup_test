@@ -1,0 +1,83 @@
+[project]
+name = "dotgroup-test"
+version = "0.1.0"
+description = "Virtual Library API: register and search books (FastAPI, SQLAlchemy 2, SQLite)."
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+license = { text = "MIT" }
+authors = [{ name = "José Eduardo Gontijo de Carvalho", email = "joseduardogontijo@gmail.com" }]
+dependencies = [
+    "fastapi>=0.115,<1.0",
+    "uvicorn[standard]>=0.32,<1.0",
+    "sqlalchemy>=2.0.36,<3.0",
+    "alembic>=1.14,<2.0",
+    "pydantic-settings>=2.6,<3.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3,<9.0",
+    "pytest-cov>=6.0,<8.0",
+    "httpx2",
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "pre-commit>=4.0",
+]
+
+[tool.poetry]
+packages = [{ include = "library_api", from = "src" }]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+extend-exclude = ["migrations/versions"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F", "I", "N", "UP", "B", "A", "C4", "SIM", "PT", "RET", "RUF",
+    "S", "PL", "PERF", "TCH", "ARG", "ERA", "D", "ANN", "T20", "DTZ", "PGH",
+]
+ignore = ["D203", "D213", "PLR0913", "B008"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "PLR2004", "ANN401"]
+"migrations/env.py" = ["F401"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["library_api"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+files = ["src", "tests", "migrations"]
+mypy_path = "src"
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "--cov=library_api",
+    "--cov-report=term-missing",
+    "--cov-fail-under=95",
+]
+markers = ["integration: tests that exercise real migrations against a SQLite file"]
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+branch = true
+source = ["library_api"]
+
+[tool.coverage.report]
+exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError"]

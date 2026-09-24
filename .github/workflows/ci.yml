@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pipx install poetry==2.3.2
+      - run: poetry install
+      - run: poetry run ruff check .
+      - run: poetry run ruff format --check .
+      - run: poetry run mypy
+      - run: poetry run pytest
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t dotgroup-test:ci .
+      - name: Smoke test the image
+        run: |
+          docker run -d --name api -p 8000:8000 dotgroup-test:ci
+          for i in $(seq 1 20); do curl -fs localhost:8000/health/ready && exit 0; sleep 1; done
+          docker logs api
+          exit 1

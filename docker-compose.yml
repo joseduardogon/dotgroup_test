@@ -1,0 +1,17 @@
+services:
+  api:
+    build: .
+    image: dotgroup-test:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      - library-data:/data
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  library-data:
