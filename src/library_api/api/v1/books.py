@@ -4,7 +4,7 @@ import uuid
 from http import HTTPStatus
 from typing import Annotated
 
-from fastapi import APIRouter, Query, Request, Response
+from fastapi import APIRouter, Path, Query, Request, Response
 
 from library_api.api.deps import BookServiceDep
 from library_api.repositories.book import BookSearchCriteria
@@ -12,6 +12,14 @@ from library_api.schemas.book import BookCreate, BookRead, BookSearchParams, Boo
 from library_api.schemas.common import Page, ProblemDetail
 
 router = APIRouter(prefix="/books", tags=["Books"])
+
+BookId = Annotated[
+    uuid.UUID,
+    Path(
+        description="Identifier of the book (UUID v4).",
+        examples=["0b1f3a52-6f0e-4a3e-9c53-0f6a3c1f9a11"],
+    ),
+]
 
 _PROBLEM_RESPONSES: dict[int | str, dict[str, object]] = {
     HTTPStatus.NOT_FOUND: {"model": ProblemDetail, "description": "Book not found."},
@@ -23,6 +31,7 @@ _PROBLEM_RESPONSES: dict[int | str, dict[str, object]] = {
     response_model=BookRead,
     status_code=HTTPStatus.CREATED,
     summary="Register a book",
+    response_description="The stored book, including its generated id and timestamps.",
     responses={
         HTTPStatus.CONFLICT: {"model": ProblemDetail, "description": "Book already registered."},
         HTTPStatus.UNPROCESSABLE_ENTITY: {
@@ -50,6 +59,7 @@ def create_book(
     "",
     response_model=Page[BookRead],
     summary="Search books",
+    response_description="A page of matching books plus the total number of matches.",
     responses={
         HTTPStatus.UNPROCESSABLE_ENTITY: {"model": ProblemDetail, "description": "Invalid query."},
     },
@@ -81,9 +91,10 @@ def list_books(
     "/{book_id}",
     response_model=BookRead,
     summary="Get a book",
+    response_description="The requested book.",
     responses=_PROBLEM_RESPONSES,
 )
-def get_book(book_id: uuid.UUID, service: BookServiceDep) -> BookRead:
+def get_book(book_id: BookId, service: BookServiceDep) -> BookRead:
     """Return a single book by its identifier."""
     return BookRead.model_validate(service.get(book_id))
 
@@ -92,12 +103,13 @@ def get_book(book_id: uuid.UUID, service: BookServiceDep) -> BookRead:
     "/{book_id}",
     response_model=BookRead,
     summary="Update a book",
+    response_description="The book after the update.",
     responses={
         **_PROBLEM_RESPONSES,
         HTTPStatus.CONFLICT: {"model": ProblemDetail, "description": "Would duplicate a book."},
     },
 )
-def update_book(book_id: uuid.UUID, payload: BookUpdate, service: BookServiceDep) -> BookRead:
+def update_book(book_id: BookId, payload: BookUpdate, service: BookServiceDep) -> BookRead:
     """Partially update a book; only the fields sent are modified."""
     return BookRead.model_validate(service.update(book_id, payload))
 
@@ -106,9 +118,10 @@ def update_book(book_id: uuid.UUID, payload: BookUpdate, service: BookServiceDep
     "/{book_id}",
     status_code=HTTPStatus.NO_CONTENT,
     summary="Delete a book",
+    response_description="The book was deleted; the response has no body.",
     responses=_PROBLEM_RESPONSES,
 )
-def delete_book(book_id: uuid.UUID, service: BookServiceDep) -> Response:
+def delete_book(book_id: BookId, service: BookServiceDep) -> Response:
     """Permanently remove a book."""
     service.remove(book_id)
     return Response(status_code=HTTPStatus.NO_CONTENT)

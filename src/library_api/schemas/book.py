@@ -13,6 +13,7 @@ from pydantic import (
     StringConstraints,
     model_validator,
 )
+from pydantic.config import JsonDict
 
 from library_api.models.book import (
     AUTHOR_MAX_LENGTH,
@@ -21,6 +22,15 @@ from library_api.models.book import (
     BookSortField,
     SortOrder,
 )
+
+_CONTROL_CHARACTERS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+_EXAMPLE_BOOK: JsonDict = {
+    "title": "Dom Casmurro",
+    "author": "Machado de Assis",
+    "published_date": "1899-12-01",
+    "summary": "Bentinho narra a dúvida sobre a fidelidade de Capitu.",
+}
 
 
 def _not_in_the_future(value: date) -> date:
@@ -38,9 +48,6 @@ def _not_in_the_future(value: date) -> date:
     if value > datetime.now(UTC).date():
         raise ValueError("published_date cannot be in the future")
     return value
-
-
-_CONTROL_CHARACTERS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 
 
 def _without_control_characters(value: str) -> str:
@@ -85,12 +92,17 @@ Summary = Annotated[
     AfterValidator(_without_control_characters),
     Field(description="Synopsis of the book.", examples=["Bentinho narra a dúvida sobre Capitu."]),
 ]
+SearchText = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=255),
+    AfterValidator(_without_control_characters),
+]
 
 
 class BookCreate(BaseModel):
-    """Payload to register a new book."""
+    """Payload to register a new book. All four fields are required."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", json_schema_extra={"example": _EXAMPLE_BOOK})
 
     title: Title
     author: Author
@@ -105,12 +117,14 @@ class BookUpdate(BaseModel):
     ``null`` for a required column is rejected instead of being silently ignored.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid", json_schema_extra={"example": {"summary": "Novo resumo."}}
+    )
 
-    title: Title | None = None
-    author: Author | None = None
-    published_date: PublishedDate | None = None
-    summary: Summary | None = None
+    title: Title | None = Field(default=None, description="New title.")
+    author: Author | None = Field(default=None, description="New author name.")
+    published_date: PublishedDate | None = Field(default=None, description="New publication date.")
+    summary: Summary | None = Field(default=None, description="New synopsis.")
 
     @model_validator(mode="after")
     def _require_meaningful_change(self) -> Self:
@@ -133,44 +147,53 @@ class BookUpdate(BaseModel):
 class BookRead(BaseModel):
     """Representation of a stored book."""
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "id": "0b1f3a52-6f0e-4a3e-9c53-0f6a3c1f9a11",
+                **_EXAMPLE_BOOK,
+                "created_at": "2026-09-23T12:00:00Z",
+                "updated_at": "2026-09-23T12:00:00Z",
+            }
+        },
+    )
 
-    id: uuid.UUID
-    title: str
-    author: str
-    published_date: date
-    summary: str
-    created_at: datetime
-    updated_at: datetime
+    id: uuid.UUID = Field(description="Unique, opaque identifier (UUID v4).")
+    title: str = Field(description="Book title.")
+    author: str = Field(description="Author full name.")
+    published_date: date = Field(description="Publication date (ISO 8601).")
+    summary: str = Field(description="Synopsis of the book.")
+    created_at: datetime = Field(description="When the book was registered (UTC).")
+    updated_at: datetime = Field(description="When the book was last modified (UTC).")
 
 
 class BookSearchParams(BaseModel):
     """Query string contract of ``GET /books``.
 
     Filters are combined with logical AND. ``q`` is a convenience free-text
-    filter matching the title **or** the author.
+    filter matching the title **or** the author. Text filters are trimmed and
+    must not be blank.
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    q: Annotated[
-        str | None,
-        Field(
-            min_length=1,
-            max_length=255,
-            description="Free text matched against title OR author.",
-            examples=["assis"],
-        ),
-    ] = None
-    title: Annotated[
-        str | None,
-        Field(min_length=1, max_length=255, description="Title contains this text."),
-    ] = None
-    author: Annotated[
-        str | None,
-        Field(min_length=1, max_length=255, description="Author contains this text."),
-    ] = None
-    sort: Annotated[BookSortField, Field(description="Field to order by.")] = BookSortField.TITLE
-    order: Annotated[SortOrder, Field(description="Sort direction.")] = SortOrder.ASC
-    limit: Annotated[int, Field(ge=1, le=100, description="Page size.")] = 20
-    offset: Annotated[int, Field(ge=0, description="Items to skip.")] = 0
+    q: SearchText | None = Field(
+        default=None,
+        description="Free text matched against title OR author.",
+        examples=["assis"],
+    )
+    title: SearchText | None = Field(
+        default=None, description="Title contains this text.", examples=["casmurro"]
+    )
+    author: SearchText | None = Field(
+        default=None, description="Author contains this text.", examples=["machado"]
+    )
+    sort: BookSortField = Field(
+        default=BookSortField.TITLE, description="Field to order by.", examples=["published_date"]
+    )
+    order: SortOrder = Field(
+        default=SortOrder.ASC, description="Sort direction.", examples=["desc"]
+    )
+    limit: int = Field(default=20, ge=1, le=100, description="Page size (1-100).", examples=[20])
+    offset: int = Field(default=0, ge=0, description="Number of matches to skip.", examples=[0])

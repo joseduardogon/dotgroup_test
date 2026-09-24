@@ -3,7 +3,7 @@
 from typing import Literal
 
 from fastapi import APIRouter, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -13,16 +13,19 @@ router = APIRouter(prefix="/health", tags=["Health"])
 
 
 class HealthStatus(BaseModel):
-    """Probe result.
+    """Probe result."""
 
-    Attributes:
-        status: ``ok`` when healthy, ``unavailable`` otherwise.
-    """
-
-    status: Literal["ok", "unavailable"]
+    status: Literal["ok", "unavailable"] = Field(
+        description="``ok`` when healthy, ``unavailable`` otherwise."
+    )
 
 
-@router.get("/live", response_model=HealthStatus, summary="Liveness probe")
+@router.get(
+    "/live",
+    response_model=HealthStatus,
+    summary="Liveness probe",
+    response_description="The process is running.",
+)
 def live() -> HealthStatus:
     """Report that the process is running (no dependencies are checked)."""
     return HealthStatus(status="ok")
@@ -32,6 +35,7 @@ def live() -> HealthStatus:
     "/ready",
     response_model=HealthStatus,
     summary="Readiness probe",
+    response_description="The service can reach its database.",
     responses={503: {"model": HealthStatus, "description": "Database unreachable."}},
 )
 def ready(session: SessionDep, response: Response) -> HealthStatus:

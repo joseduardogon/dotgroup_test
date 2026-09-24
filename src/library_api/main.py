@@ -12,6 +12,7 @@ from library_api.core.config import Settings, get_settings
 from library_api.core.errors import register_exception_handlers
 from library_api.core.logging import configure_logging
 from library_api.core.middleware import RequestContextMiddleware
+from library_api.core.openapi import LibraryAPI
 from library_api.db.session import create_db_engine, create_session_factory
 
 API_V1_PREFIX = "/api/v1"
@@ -63,7 +64,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         finally:
             engine.dispose()
 
-    app = FastAPI(
+    app = LibraryAPI(
         title=settings.app_name,
         version=settings.app_version,
         description=DESCRIPTION,

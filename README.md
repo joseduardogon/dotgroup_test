@@ -112,7 +112,8 @@ curl "localhost:8000/api/v1/books?q=assis&sort=published_date&order=desc&limit=1
 
 Parâmetros de `GET /books`: `q`, `title`, `author` (substring, combinados com AND),
 `sort` (`title`, `author`, `published_date`, `created_at`), `order` (`asc`/`desc`),
-`limit` (1-100, padrão 20), `offset`.
+`limit` (1-100, padrão 20), `offset`. Filtros de texto são aparados e não podem ser
+vazios (422); `offset` além do total devolve página vazia com o `total` correto.
 
 Resposta paginada: `{ "items": [...], "total": 42, "limit": 20, "offset": 0 }`.
 
@@ -130,6 +131,11 @@ Erros seguem [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457)
   "request_id": "3f0c5d0e7a5d4a1f9b0d2d8f6a1c2b3e"
 }
 ```
+
+O OpenAPI (`/openapi.json`) descreve exatamente essas respostas: erros com
+`application/problem+json`, exemplos de 404/409/422, descrição de todos os campos e
+parâmetros, e exemplos completos de requisição/resposta. Um teste de contrato
+(`tests/api/test_openapi_contract.py`) impede regressões.
 
 Erros de validação (422) incluem `errors: [{location, message, type}]`. O
 `request_id` e o header `X-Request-ID` estão presentes em **todas** as respostas de erro,
@@ -257,10 +263,14 @@ de integração executa `upgrade head`, compara as migrations com os models
 ### 3.11 Testes (`tests/`)
 
 - **unit/**: normalização, schemas, tipo de data, engine/pragmas, logging, settings,
-  tradução de erros de integridade no repositório.
+  tradução de erros de integridade no repositório, `BookService` (commit/rollback,
+  conflitos, erros de domínio) e o middleware ASGI isolado (request-id seguro,
+  limpeza do `ContextVar`, log de acesso).
 - **api/**: cadastro (201, duplicata, validação), busca (acentos, AND/OR, wildcards,
-  ordenação, paginação, parâmetros inválidos), item (404, PATCH, rollback em 409,
-  DELETE), plataforma (health, request-id, log de acesso, erros, OpenAPI).
+  ordenação, paginação, parâmetros inválidos), casos-limite (offset além do total,
+  `limit=100`, empates de ordenação com paginação estável, filtros em branco), item
+  (404, PATCH, rollback em 409, DELETE), plataforma (health, request-id, log de acesso,
+  erros) e contrato OpenAPI.
 - **integration/**: migrations reais e concorrência de escritas em SQLite de arquivo.
 
 Cada teste usa uma aplicação nova com SQLite em memória. `filterwarnings = error`

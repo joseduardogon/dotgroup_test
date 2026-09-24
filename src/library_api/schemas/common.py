@@ -6,46 +6,28 @@ from pydantic import BaseModel, ConfigDict, Field
 class Page[T](BaseModel):
     """Offset-paginated collection envelope.
 
-    Attributes:
-        items: Elements of the requested window.
-        total: Number of elements matching the query across all pages.
-        limit: Page size that was applied.
-        offset: Number of elements skipped.
+    ``total`` counts every match, so clients can compute the number of pages as
+    ``ceil(total / limit)``. An ``offset`` past the end yields an empty ``items``.
     """
 
-    items: list[T]
+    items: list[T] = Field(description="Elements of the requested window.")
     total: int = Field(ge=0, description="Total number of matches, ignoring pagination.")
     limit: int = Field(ge=1, description="Maximum number of items returned per page.")
     offset: int = Field(ge=0, description="Number of matches skipped before this page.")
 
 
 class FieldError(BaseModel):
-    """A single request validation failure.
+    """A single request validation failure."""
 
-    Attributes:
-        location: Path to the offending input, e.g. ``["body", "title"]``.
-        message: Human readable explanation.
-        type: Pydantic error type identifier.
-    """
-
-    location: list[str | int]
-    message: str
-    type: str
+    location: list[str | int] = Field(
+        description="Path to the offending input.", examples=[["body", "title"]]
+    )
+    message: str = Field(description="Human readable explanation.")
+    type: str = Field(description="Pydantic error type identifier.", examples=["string_too_short"])
 
 
 class ProblemDetail(BaseModel):
-    """RFC 9457 ``application/problem+json`` document.
-
-    Attributes:
-        type: URI reference identifying the problem type.
-        title: Short, stable summary of the problem type.
-        status: HTTP status code.
-        detail: Explanation specific to this occurrence.
-        instance: Path of the request that failed.
-        code: Stable machine readable error code (extension member).
-        request_id: Correlation id, matching the ``X-Request-ID`` response header.
-        errors: Field level validation errors, present for 422 responses.
-    """
+    """RFC 9457 ``application/problem+json`` document returned for every error."""
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -61,11 +43,15 @@ class ProblemDetail(BaseModel):
         }
     )
 
-    type: str
-    title: str
-    status: int
-    detail: str
-    instance: str
-    code: str
-    request_id: str | None = None
-    errors: list[FieldError] | None = None
+    type: str = Field(description="URI reference identifying the problem type.")
+    title: str = Field(description="Short, stable summary of the problem type.")
+    status: int = Field(description="HTTP status code.")
+    detail: str = Field(description="Explanation specific to this occurrence.")
+    instance: str = Field(description="Path of the request that failed.")
+    code: str = Field(description="Stable machine readable error code (extension member).")
+    request_id: str | None = Field(
+        default=None, description="Correlation id; matches the ``X-Request-ID`` response header."
+    )
+    errors: list[FieldError] | None = Field(
+        default=None, description="Field level validation errors (422 only)."
+    )
