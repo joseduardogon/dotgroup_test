@@ -94,6 +94,24 @@ def test_remove_deletes_and_second_remove_fails(service: BookService) -> None:
         service.remove(book.id)
 
 
+def test_remove_failure_rolls_back_and_keeps_the_book(
+    service: BookService, session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """If commit fails during removal, the session rolls back instead of half-applying it."""
+    book = service.register(_data())
+
+    def _failing_commit() -> None:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(session, "commit", _failing_commit)
+
+    with pytest.raises(RuntimeError):
+        service.remove(book.id)
+
+    monkeypatch.undo()
+    assert service.get(book.id).id == book.id
+
+
 def test_search_returns_items_and_total(service: BookService) -> None:
     """Search delegates to the repository and reports the unpaginated total."""
     for title in ("Alfa", "Beta", "Gama"):

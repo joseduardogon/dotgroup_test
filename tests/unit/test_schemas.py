@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from pydantic import ValidationError
 
+from library_api.models.book import AUTHOR_MAX_LENGTH, SUMMARY_MAX_LENGTH, TITLE_MAX_LENGTH
 from library_api.schemas.book import BookCreate, BookUpdate
 
 
@@ -59,3 +60,23 @@ def test_update_rejects_explicit_null() -> None:
 def test_update_accepts_partial() -> None:
     """A single field is enough."""
     assert BookUpdate.model_validate({"summary": "x"}).model_fields_set == {"summary"}
+
+
+@pytest.mark.parametrize(
+    ("field", "limit"),
+    [("title", TITLE_MAX_LENGTH), ("author", AUTHOR_MAX_LENGTH), ("summary", SUMMARY_MAX_LENGTH)],
+)
+def test_create_accepts_text_exactly_at_the_length_limit(field: str, limit: int) -> None:
+    """A field at its documented maximum length is valid."""
+    book = BookCreate.model_validate(_valid(**{field: "x" * limit}))
+    assert len(getattr(book, field)) == limit
+
+
+@pytest.mark.parametrize(
+    ("field", "limit"),
+    [("title", TITLE_MAX_LENGTH), ("author", AUTHOR_MAX_LENGTH), ("summary", SUMMARY_MAX_LENGTH)],
+)
+def test_create_rejects_text_one_over_the_length_limit(field: str, limit: int) -> None:
+    """A field one character past its documented maximum is invalid."""
+    with pytest.raises(ValidationError, match="at most"):
+        BookCreate.model_validate(_valid(**{field: "x" * (limit + 1)}))

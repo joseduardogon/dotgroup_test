@@ -230,7 +230,9 @@ faz `commit` ou `rollback`. O repositório apenas `flush`a e traduz em
 programação. A duplicidade é garantida por constraint no banco, não por "checar antes
 de inserir", o que a torna segura contra condições de corrida; o teste
 `test_concurrency.py` dispara 8 POSTs simultâneos e exige exatamente um 201.
-`PATCH` aplica só os campos enviados (`exclude_unset`), e a atualização das colunas
+`DELETE` é um único `DELETE ... WHERE id = ...` cujo `rowcount` decide entre 204 e 404,
+sem consulta prévia: em remoções simultâneas do mesmo livro exatamente uma responde 204
+e as demais 404. `PATCH` aplica só os campos enviados (`exclude_unset`), e a atualização das colunas
 de busca acontece automaticamente pelos validators.
 
 ### 3.6 Contratos (`schemas/`)
@@ -301,7 +303,7 @@ transforma warnings em falhas; cobertura mínima de 95% é imposta pelo pytest.
 
 - `ruff` (E, F, I, N, UP, B, D com convenção Google, S, ANN, DTZ, entre outros),
   `mypy --strict`, pre-commit e CI (GitHub Actions: lint, tipos, testes e build/smoke
-  test da imagem, executado com filesystem read-only), Dependabot.
+  test da imagem, executado com filesystem read-only).
 - **Docstrings Google são a única forma de comentário** no código Python.
 - **Dockerfile** multi-stage: o builder instala o Poetry e as dependências (camada
   cacheada pelo `poetry.lock`); o runtime é `python:slim` com `.venv` copiado, usuário

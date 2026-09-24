@@ -2,8 +2,9 @@
 
 import uuid
 from dataclasses import dataclass
+from typing import Any, cast
 
-from sqlalchemy import ColumnElement, Select, func, or_, select
+from sqlalchemy import ColumnElement, CursorResult, Select, delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import InstrumentedAttribute, Session
 
@@ -113,14 +114,22 @@ class BookRepository:
         )
         return list(self._session.scalars(statement)), total or 0
 
-    def delete(self, book: Book) -> None:
-        """Remove a book.
+    def delete(self, book_id: uuid.UUID) -> bool:
+        """Remove a book by id, if it is still present.
+
+        Deletes by a single ``WHERE id = ...`` statement rather than loading
+        the row first, so a book removed by a concurrent request between the
+        caller's existence check and this call is simply reported as absent
+        instead of racing that other request.
 
         Args:
-            book: Persistent instance to delete.
+            book_id: Identifier of the book to remove.
+
+        Returns:
+            ``True`` if a row was removed, ``False`` if none matched.
         """
-        self._session.delete(book)
-        self._session.flush()
+        result = self._session.execute(delete(Book).where(Book.id == book_id))
+        return cast("CursorResult[Any]", result).rowcount > 0
 
     def flush(self) -> None:
         """Flush pending changes, translating constraint violations.

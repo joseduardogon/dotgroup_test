@@ -108,8 +108,14 @@ class BookService:
             book_id: Identifier of the book to delete.
 
         Raises:
-            BookNotFoundError: If the book does not exist.
+            BookNotFoundError: If no book exists with this id, including when
+                it was already removed by a concurrent request.
         """
-        book = self.get(book_id)
-        self._repository.delete(book)
-        self._session.commit()
+        try:
+            deleted = self._repository.delete(book_id)
+            self._session.commit()
+        except Exception:
+            self._session.rollback()
+            raise
+        if not deleted:
+            raise BookNotFoundError(book_id)
